@@ -6,17 +6,21 @@ import {
   StyleSheet,
 } from "react-native";
 
+import { router } from "expo-router";
+
 export default function Login() {
+  const handleSignIn = () => {
+    router.replace("/(home_tabs)/home");
+  };
+
   return (
     <View style={styles.container}>
       <Text style={styles.title}>Welcome back</Text>
-
       <Text style={styles.subtitle}>
         Sign in to continue to FitPath.
       </Text>
 
       <Text style={styles.label}>Email</Text>
-
       <TextInput
         style={styles.input}
         placeholder="Enter email"
@@ -25,18 +29,17 @@ export default function Login() {
       />
 
       <Text style={styles.label}>Password</Text>
-
       <TextInput
         style={styles.input}
         placeholder="Enter password"
         secureTextEntry
       />
 
-      <Pressable style={styles.button}>
+      <Pressable style={styles.button} onPress={handleSignIn}>
         <Text style={styles.buttonText}>Sign in</Text>
       </Pressable>
 
-      <Text style={styles.signupText}>
+      <Text style={styles.signup}>
         Don't have an account?{" "}
         <Text style={styles.signupLink}>Sign up</Text>
       </Text>
@@ -53,41 +56,40 @@ const styles = StyleSheet.create({
   },
 
   title: {
-    fontSize: 28,
+    fontSize: 32,
     fontWeight: "700",
-    color: "#1a1a1a",
-    marginBottom: 6,
+    marginBottom: 8,
   },
 
   subtitle: {
-    fontSize: 16,
-    color: "#777",
-    marginBottom: 32,
+    fontSize: 18,
+    color: "#666",
+    marginBottom: 42,
   },
 
   label: {
     fontSize: 14,
-    fontWeight: "500",
+    fontWeight: "600",
     marginBottom: 8,
   },
 
   input: {
-    height: 52,
+    height: 50,
     borderWidth: 1,
     borderColor: "#ccc",
     borderRadius: 8,
     paddingHorizontal: 14,
     fontSize: 16,
-    marginBottom: 20,
+    marginBottom: 22,
   },
 
   button: {
+    height: 50,
     backgroundColor: "#292929",
-    height: 52,
     borderRadius: 8,
-    justifyContent: "center",
     alignItems: "center",
-    marginTop: 4,
+    justifyContent: "center",
+    marginTop: 2,
   },
 
   buttonText: {
@@ -96,15 +98,13 @@ const styles = StyleSheet.create({
     fontWeight: "600",
   },
 
-  signupText: {
+  signup: {
     textAlign: "center",
     marginTop: 20,
     fontSize: 14,
-    color: "#555",
   },
 
   signupLink: {
-    color: "#222",
     fontWeight: "600",
   },
 });

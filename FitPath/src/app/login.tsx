@@ -13,9 +13,14 @@ export default function Login() {
     router.replace("/(home_tabs)/home");
   };
 
+  const handleSignUp = () => {
+    router.push("/signup");
+  };
+
   return (
     <View style={styles.container}>
       <Text style={styles.title}>Welcome back</Text>
+
       <Text style={styles.subtitle}>
         Sign in to continue to FitPath.
       </Text>
@@ -35,14 +40,22 @@ export default function Login() {
         secureTextEntry
       />
 
-      <Pressable style={styles.button} onPress={handleSignIn}>
+      <Pressable
+        style={styles.button}
+        onPress={handleSignIn}
+      >
         <Text style={styles.buttonText}>Sign in</Text>
       </Pressable>
 
-      <Text style={styles.signup}>
-        Don't have an account?{" "}
-        <Text style={styles.signupLink}>Sign up</Text>
-      </Text>
+      <View style={styles.signupRow}>
+        <Text style={styles.signupText}>
+          Don't have an account?
+        </Text>
+
+        <Pressable onPress={handleSignUp}>
+          <Text style={styles.signupLink}>Sign up</Text>
+        </Pressable>
+      </View>
     </View>
   );
 }
@@ -98,13 +111,20 @@ const styles = StyleSheet.create({
     fontWeight: "600",
   },
 
-  signup: {
-    textAlign: "center",
+  signupRow: {
+    flexDirection: "row",
+    justifyContent: "center",
+    alignItems: "center",
     marginTop: 20,
+    gap: 4,
+  },
+
+  signupText: {
     fontSize: 14,
   },
 
   signupLink: {
+    fontSize: 14,
     fontWeight: "600",
   },
 });

@@ -6,6 +6,8 @@ import {
   ScrollView,
 } from "react-native";
 
+import { router } from "expo-router";
+
 type User = {
   name: string;
   email: string;
@@ -43,7 +45,7 @@ function Row({ label, value, onPress }: RowProps) {
 
 export default function Account() {
   const handleLogout = () => {
-    // TODO: sign the user out
+      router.replace("/login");
   };
 
   return (

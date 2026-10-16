@@ -49,7 +49,7 @@ export default function SignUp() {
     }
 
     // Account/database functionality will be added later
-    setMessage("Form validation successful.");
+    router.push("/fitness-goal");
   };
 
   return (

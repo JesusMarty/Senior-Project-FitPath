@@ -5,13 +5,150 @@ import {
   StyleSheet,
 } from "react-native";
 
-import { router } from "expo-router";
-import { useState } from "react";
+import { router, useLocalSearchParams } from "expo-router";
+
+import { useEffect, useState } from "react";
+import { supabase } from "../lib/supabase";
 
 export default function ExerciseSetup() {
+  const { mode } = useLocalSearchParams<{
+  mode?: string;
+}>();
+
+const isEditing = mode === "edit";
   const [experience, setExperience] = useState("Beginner");
   const [gymAccess, setGymAccess] = useState("Yes");
+  const [loading, setLoading] = useState(true);
+const [saving, setSaving] = useState(false);
+const [message, setMessage] = useState("");
 
+useEffect(() => {
+  let active = true;
+
+  const loadGymAccess = async () => {
+    try {
+      const {
+        data: { user },
+        error: authError,
+      } = await supabase.auth.getUser();
+
+      if (authError) throw authError;
+      if (!user) {
+        router.replace("/login");
+        const handleSave = async () => {
+  if (saving || loading) return;
+
+  setSaving(true);
+  setMessage("");
+
+  try {
+    const {
+      data: { user },
+      error: authError,
+    } = await supabase.auth.getUser();
+
+    if (authError) throw authError;
+
+    if (!user) {
+      router.replace("/login");
+      return;
+    }
+
+    const { error } = await supabase
+      .from("profiles")
+      .upsert(
+        {
+          id: user.id,
+          gym_access: gymAccess === "Yes",
+        },
+        { onConflict: "id" }
+      );
+
+    if (error) throw error;
+
+    if (isEditing) {
+  router.replace("/(home_tabs)/account");
+} else {
+  router.push("/recommended-plan");
+}
+  } catch (error: any) {
+    console.error("Save gym access error:", error);
+    setMessage(
+      error?.message ?? "Unable to save gym access."
+    );
+  } finally {
+    setSaving(false);
+  }
+};
+        return;
+      }
+
+      const { data, error } = await supabase
+        .from("profiles")
+        .select("gym_access")
+        .eq("id", user.id)
+        .maybeSingle();
+
+      if (error) throw error;
+
+      if (active && data?.gym_access != null) {
+        setGymAccess(data.gym_access ? "Yes" : "No");
+      }
+    } catch (error) {
+      console.error("Load gym access error:", error);
+      if (active) {
+        setMessage("Unable to load gym access.");
+      }
+    } finally {
+      if (active) setLoading(false);
+    }
+  };
+
+  loadGymAccess();
+
+  return () => {
+    active = false;
+  };
+}, []);
+
+const handleSave = async () => {
+  if (saving || loading) return;
+
+  setSaving(true);
+  setMessage("");
+
+  try {
+    const {
+      data: { user },
+      error: authError,
+    } = await supabase.auth.getUser();
+
+    if (authError) throw authError;
+
+    if (!user) {
+      router.replace("/login");
+      return;
+    }
+
+    const { error } = await supabase
+      .from("profiles")
+      .update({
+        gym_access: gymAccess === "Yes",
+      })
+      .eq("id", user.id);
+
+    if (error) throw error;
+
+    router.push("/recommended-plan");
+  } catch (error: any) {
+    console.error("Save gym access error:", error);
+    setMessage(
+      error?.message ?? "Unable to save gym access."
+    );
+  } finally {
+    setSaving(false);
+  }
+};
   return (
     <View style={styles.container}>
 
@@ -151,14 +288,19 @@ export default function ExerciseSetup() {
 
       {/* Continue */}
       <Pressable
-        style={styles.button}
-        onPress={() => router.push("/recommended-plan")}
-      >
-        <Text style={styles.buttonText}>
-          Build my plan
-        </Text>
-      </Pressable>
-
+  style={styles.button}
+  onPress={handleSave}
+  disabled={saving || loading}
+>
+  <Text style={styles.buttonText}>
+    {saving
+  ? "Saving..."
+  : isEditing
+  ? "Save Changes"
+  : "Build my plan"}
+  </Text>
+</Pressable>
+      
     </View>
   );
 }

@@ -1,28 +1,28 @@
+
+import { useCallback, useState } from "react";
 import {
   Text,
   View,
   StyleSheet,
   Pressable,
   ScrollView,
+  ActivityIndicator,
 } from "react-native";
 
-import { router } from "expo-router";
+import { router, useFocusEffect } from "expo-router";
+import { supabase } from "../../lib/supabase";
 
-type User = {
+type UserProfile = {
   name: string;
   email: string;
   goal: string;
   activityLevel: string;
-  gymAccess: boolean;
-};
-
-// Replace with real data from your auth/profile state
-const user: User = {
-  name: "User's Name",
-  email: "User's Email",
-  goal: "User's Goal",
-  activityLevel: "User's Activity",
-  gymAccess: true,
+  gymAccess: boolean | null;
+  currentWeight: number | null;
+  goalWeight: number | null;
+  height: string | null;
+  age: number | null;
+  workoutDays: string[];
 };
 
 type RowProps = {
@@ -34,19 +34,147 @@ type RowProps = {
 function Row({ label, value, onPress }: RowProps) {
   return (
     <Pressable
+      disabled={!onPress}
       onPress={onPress}
-      style={({ pressed }) => [styles.row, pressed && styles.rowPressed]}
+      style={({ pressed }) => [
+        styles.row,
+        pressed && styles.rowPressed,
+      ]}
     >
       <Text style={styles.rowLabel}>{label}</Text>
-      <Text style={styles.rowValue}>{value} ›</Text>
+      <Text style={styles.rowValue}>
+        {value}{onPress ? " ›" : ""}
+      </Text>
     </Pressable>
   );
 }
 
 export default function Account() {
-  const handleLogout = () => {
+  const [user, setUser] = useState<UserProfile | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [loggingOut, setLoggingOut] = useState(false);
+  const [error, setError] = useState("");
+
+  useFocusEffect(
+    useCallback(() => {
+      let active = true;
+
+      const loadAccount = async () => {
+        setLoading(true);
+        setError("");
+
+        try {
+          const {
+            data: { user: authUser },
+            error: authError,
+          } = await supabase.auth.getUser();
+
+          if (!active) return;
+
+          if (authError) throw authError;
+
+          if (!authUser) {
+            setUser(null);
+            router.replace("/login");
+            return;
+          }
+
+          const { data: profile, error: profileError } =
+            await supabase
+              .from("profiles")
+              .select(
+                "full_name, current_weight, goal_weight, height, age, activity_level, gym_access, fitness_goal, workout_days"
+              )
+              .eq("id", authUser.id)
+              .maybeSingle();
+
+          if (!active) return;
+
+          if (profileError) throw profileError;
+
+          const metadata = authUser.user_metadata ?? {};
+
+          setUser({
+            name:
+              profile?.full_name ||
+              metadata.full_name ||
+              "FitPath User",
+
+            email: authUser.email ?? "No email available",
+
+            goal: profile?.fitness_goal || "Not set",
+
+            activityLevel:
+              profile?.activity_level || "Not set",
+
+            gymAccess: profile?.gym_access ?? null,
+
+            currentWeight: profile?.current_weight ?? null,
+
+            goalWeight: profile?.goal_weight ?? null,
+
+            height: profile?.height ?? null,
+
+            age: profile?.age ?? null,
+
+            workoutDays: Array.isArray(profile?.workout_days)
+              ? profile.workout_days
+              : [],
+          });
+        } catch (err) {
+          if (active) {
+            console.error("Account loading error:", err);
+            setError(
+              err instanceof Error
+                ? err.message
+                : "Unable to load account information."
+            );
+          }
+        } finally {
+          if (active) setLoading(false);
+        }
+      };
+
+      loadAccount();
+
+      return () => {
+        active = false;
+      };
+    }, [])
+  );
+
+  const handleLogout = async () => {
+    if (loggingOut) return;
+
+    setLoggingOut(true);
+    setError("");
+
+    try {
+      const { error: signOutError } =
+        await supabase.auth.signOut();
+
+      if (signOutError) throw signOutError;
+
+      setUser(null);
       router.replace("/login");
+    } catch (err) {
+      console.error("Logout error:", err);
+      setError("Unable to log out. Please try again.");
+    } finally {
+      setLoggingOut(false);
+    }
   };
+
+  if (loading) {
+    return (
+      <View style={styles.center}>
+        <ActivityIndicator size="large" color="#292929" />
+        <Text style={styles.loadingText}>
+          Loading account details...
+        </Text>
+      </View>
+    );
+  }
 
   return (
     <ScrollView
@@ -54,33 +182,176 @@ export default function Account() {
       contentContainerStyle={styles.container}
     >
       <Text style={styles.title}>Account Details</Text>
-      <Text style={styles.subtitle}>Manage your profile and preferences</Text>
 
-      <View style={styles.profile}>
-        <View style={styles.avatar} />
-        <View>
-          <Text style={styles.name}>{user.name}</Text>
-          <Text style={styles.email}>{user.email}</Text>
-        </View>
-      </View>
+      <Text style={styles.subtitle}>
+        Manage your profile and preferences
+      </Text>
 
-      <View style={styles.list}>
-        <Row label="Personal information" value="Edit" />
-        <Row label="Current goal" value={user.goal} />
-        <Row label="Activity level" value={user.activityLevel} />
-        <Row label="Gym access" value={user.gymAccess ? "Yes" : "No"} />
-        <Row label="Settings" value="Notifications, units" />
-      </View>
+      {error !== "" && (
+        <Text style={styles.error}>{error}</Text>
+      )}
 
-      <Pressable
-        onPress={handleLogout}
-        style={({ pressed }) => [
-          styles.logoutButton,
-          pressed && styles.rowPressed,
-        ]}
-      >
-        <Text style={styles.logoutText}>Log out</Text>
-      </Pressable>
+      {user ? (
+        <>
+          <View style={styles.profile}>
+            <View style={styles.avatar} />
+
+            <View style={styles.profileText}>
+              <Text style={styles.name}>{user.name}</Text>
+              <Text style={styles.email}>{user.email}</Text>
+            </View>
+          </View>
+
+          
+<View style={styles.list}>
+  <Row
+  label="Personal information"
+  value="Edit"
+  onPress={() =>
+    router.push({
+      pathname: "/personal-info",
+      params: { mode: "edit" },
+    })
+  }
+/>
+  <Row
+    label="Current weight"
+    value={
+      user.currentWeight !== null
+        ? `${user.currentWeight} lb`
+        : "Not set"
+    }
+    onPress={() =>
+      router.push({
+        pathname: "/personal-info",
+        params: { mode: "edit" },
+      })
+    }
+  />
+
+  <Row
+    label="Goal weight"
+    value={
+      user.goalWeight !== null
+        ? `${user.goalWeight} lb`
+        : "Not set"
+    }
+    onPress={() =>
+      router.push({
+        pathname: "/personal-info",
+        params: { mode: "edit" },
+      })
+    }
+  />
+
+  <Row
+    label="Height"
+    value={user.height || "Not set"}
+    onPress={() =>
+  router.push({
+    pathname: "/personal-info",
+    params: { mode: "edit" },
+  })
+}
+  />
+
+  <Row
+    label="Age"
+    value={
+      user.age !== null ? `${user.age}` : "Not set"
+    }
+    onPress={() =>
+      router.push({
+        pathname: "/personal-info",
+        params: { mode: "edit" },
+      })
+    }
+  />
+
+  <Row
+    label="Current goal"
+    value={user.goal}
+    onPress={() => router.push({
+  pathname: "/fitness-goal",
+  params: { mode: "edit" },
+})}
+  />
+
+  <Row
+    label="Activity level"
+    value={user.activityLevel}
+    onPress={() =>
+  router.push({
+    pathname: "/personal-info",
+    params: { mode: "edit" },
+  })
+}
+  />
+
+  <Row
+    label="Gym access"
+    value={
+      user.gymAccess === null
+        ? "Not set"
+        : user.gymAccess
+        ? "Yes"
+        : "No"
+    }
+    onPress={() =>
+  router.push({
+    pathname: "/exercise-setup",
+    params: { mode: "edit" },
+  })
+}
+  />
+
+  <Row
+    label="Workout days"
+    value={
+      user.workoutDays.length > 0
+        ? user.workoutDays.join(", ")
+        : "Not set"
+    }
+    onPress={() => router.push({
+  pathname: "/recommended-plan",
+  params: { mode: "edit" },
+})}
+  />
+
+  <Row
+    label="Settings"
+    value="Coming soon"
+  />
+</View>
+
+
+          <Pressable
+            disabled={loggingOut}
+            onPress={handleLogout}
+            style={({ pressed }) => [
+              styles.logoutButton,
+              pressed && styles.rowPressed,
+            ]}
+          >
+            {loggingOut ? (
+              <ActivityIndicator color="#111" />
+            ) : (
+              <Text style={styles.logoutText}>
+                Log out
+              </Text>
+            )}
+          </Pressable>
+        </>
+      ) : (
+        <Pressable
+          style={styles.logoutButton}
+          onPress={() => router.replace("/login")}
+        >
+          <Text style={styles.logoutText}>
+            Return to Sign In
+          </Text>
+        </Pressable>
+      )}
     </ScrollView>
   );
 }
@@ -93,6 +364,17 @@ const styles = StyleSheet.create({
   container: {
     padding: 16,
     paddingTop: 24,
+    paddingBottom: 40,
+  },
+  center: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "#fafafa",
+  },
+  loadingText: {
+    marginTop: 12,
+    color: "#666",
   },
   title: {
     fontSize: 24,
@@ -117,6 +399,9 @@ const styles = StyleSheet.create({
     backgroundColor: "#eeeeee",
     marginRight: 12,
   },
+  profileText: {
+    flex: 1,
+  },
   name: {
     fontSize: 17,
     fontWeight: "700",
@@ -137,6 +422,7 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     borderBottomWidth: StyleSheet.hairlineWidth,
     borderBottomColor: "#d9d9d9",
+    gap: 12,
   },
   rowPressed: {
     opacity: 0.6,
@@ -148,6 +434,8 @@ const styles = StyleSheet.create({
   rowValue: {
     fontSize: 15,
     color: "#111",
+    flexShrink: 1,
+    textAlign: "right",
   },
   logoutButton: {
     marginTop: 4,
@@ -162,5 +450,10 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: "700",
     color: "#111",
+  },
+  error: {
+    color: "#b42318",
+    marginTop: 16,
+    fontSize: 14,
   },
 });
